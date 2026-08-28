@@ -9,13 +9,17 @@ const log = childLogger({ module: "provisioning.step.send-welcome-email" });
 
 /**
  * Sends the customer welcome email (brief section 27) once the service is
- * live. NOT currently registered as a fixed provisioning step — see the
- * TODO in step-registry.ts. The required ordering per the brief is
- * Deployment -> Health Validation -> Access Configuration -> Appointment
- * confirmed -> Welcome Email; wiring that up is owned by a later
- * integration pass once health-validation lands, so this executor is
- * built and independently usable (and testable) but not yet part of the
- * fixed-step sequence.
+ * live. Registered as the LAST fixed provisioning step (see
+ * register-steps.ts's `registerFixedProvisioningSteps`), after
+ * `health_validation` and `access_configuration` — the engine's
+ * stop-on-first-fixed-step-failure behavior (services/provisioning/engine.ts)
+ * means this step never runs unless both of those already succeeded, so by
+ * the time a customer is emailed, their deployment has been validated
+ * healthy and their access has been configured. The appointment-confirmed
+ * gate is enforced even earlier, independent of this ordering, at
+ * deployment-creation time (src/features/provisioning/service.ts's
+ * `createDeployment`) — a deployment can never reach any fixed step,
+ * including this one, without a confirmed Appointment.
  *
  * Idempotent: if a `welcome_email` Notification already exists with
  * status "sent" for this customer, skip rather than sending twice.

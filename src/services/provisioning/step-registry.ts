@@ -21,14 +21,6 @@ const resourceStepOverrides: Record<string, StepExecutor> = {
  *
  * Populated by services/provisioning/register-steps.ts, which every
  * feature module's step lives in, so this file stays a stable interface.
- *
- * TODO(provisioning): register sendWelcomeEmailStep via registerFixedStep()
- * once health-validation ordering is finalized. The executor already
- * exists at services/provisioning/steps/send-welcome-email.ts and is
- * independently tested; it is intentionally not wired in here yet because
- * the exact ordering of fixed steps (Deployment -> Health Validation ->
- * Access Configuration -> Appointment confirmed -> Welcome Email, per
- * brief section 27) is being finalized in a follow-up integration pass.
  */
 const fixedSteps: StepExecutor[] = [];
 

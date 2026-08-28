@@ -17,16 +17,22 @@ ConnectorMetadata (Prisma model)
 Connector catalog UI (searchable, category-grouped cards)
         ↓ (user picks a connector + auth method)
 Generic ConnectionAuthForm (renders fields from creationMethodsJson/supportedCredentialTypesJson)
+        ↓ (POST /api/connections — non-secret parameters + a secret reference)
+Connection (Prisma model, status "draft")
         ↓
-FabricConnectionService.createConnection()
-        ↓ (POST /v1/connections, credential via SecretProvider)
-Connection (Prisma model) + ConnectionSecretReference
+FabricConnectionService.createFabricConnection(connectionId)
+        ↓ (POST /v1/connections, credential resolved via SecretProvider)
+Connection (status "connected") + ConnectionSecretReference
 ```
 
 As with Fabric item types, there is **no per-connector-type React component**
-(`SalesforceConnectionForm.tsx` does not exist). The auth-method-specific fields render
-generically off each connector's stored metadata, the same "dynamic parameter" approach
-used throughout the Fabric provisioning UI.
+(`SalesforceConnectionForm.tsx` does not exist). The two real, generic components are
+`ConnectorCatalog` and `ConnectionAuthForm` (`src/components/connections/`, exported from
+its `index.ts`) — a searchable/category-grouped picker and an auth-method-driven form,
+respectively, both consumed as-is by the provisioning wizard's "Data Sources" step. The
+auth-method-specific fields render generically off each connector's stored metadata
+(`toParameterList`/`buildCredentialDetails` in `fabric-connection-service.ts`), the same
+"dynamic parameter" approach used throughout the Fabric provisioning UI.
 
 ## Supported authentication models
 
@@ -61,6 +67,21 @@ category the product brief lists: Microsoft, Databases, Cloud Storage, SaaS, Fil
 Analytics, ERP, CRM. Run `ConnectorRegistryService.syncConnectorCatalog()` against a real
 Fabric tenant to replace/refresh this with live data — it upserts by
 `connectionTypeKey`, so re-running it is always safe.
+
+## API routes
+
+- `GET /api/connections/connectors` — the catalog `ConnectorCatalog` renders from.
+- `GET /api/connections?customerId=` — a customer's connections (status/health only).
+- `POST /api/connections` — creates a `Connection` (`status: "draft"`), stores a secret
+  reference if `secretValue` is present, and immediately calls
+  `fabricConnectionService.createFabricConnection()` unless the auth method requires the
+  interactive OAuth2 flow first (`OAuth2`, `OrganizationalAccount`) — see
+  `src/app/api/connections/route.ts`. A Fabric-side failure still returns 201 with the
+  `Connection` row (now `status: "error"`) plus a `warning` string, rather than a bare 500,
+  so the caller can inspect/retry instead of losing the record.
+- `GET /api/connections/[connectionId]` , `DELETE` — read/remove one connection.
+- `GET /api/connections/[connectionId]/oauth/authorize` , `GET /api/connections/oauth/callback`
+  — the OAuth2 "Connect" flow's authorization-URL and token-exchange endpoints.
 
 ## Adding a connector
 
