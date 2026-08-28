@@ -1,0 +1,132 @@
+enum RollbackPolicy {
+  KEEP_SUCCESSFUL_RESOURCES
+  ROLLBACK_CREATED_RESOURCES
+}
+
+enum DeploymentStatus {
+  draft // plan generated, not yet started
+  pending // queued to start
+  running
+  partially_failed
+  failed
+  succeeded
+  cancelled
+  rolled_back
+}
+
+// A single provisioning run for one InfrastructureConfiguration version.
+// The Appointment gate is enforced here (appointmentId must reference a
+// `confirmed` Appointment) AND re-validated server-side before the job
+// runner is allowed to start (see services/provisioning/preflight.ts) —
+// this must be impossible to bypass by calling the API directly.
+model Deployment {
+  id                            String @id @default(cuid())
+  customerId                    String
+  infrastructureConfigurationId String
+  appointmentId                 String
+
+  status         DeploymentStatus @default(draft)
+  rollbackPolicy RollbackPolicy   @default(KEEP_SUCCESSFUL_RESOURCES)
+
+  planJson Json? // Terraform-like plan snapshot shown to the user before CREATE
+
+  startedAt  DateTime?
+  finishedAt DateTime?
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  createdById String?
+
+  customer      Customer                    @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  configuration InfrastructureConfiguration @relation(fields: [infrastructureConfigurationId], references: [id])
+  appointment   Appointment                 @relation(fields: [appointmentId], references: [id])
+
+  desiredResources DesiredResource[]
+  steps            DeploymentStep[]
+
+  @@index([customerId])
+  @@index([status])
+}
+
+enum DeploymentStepStatus {
+  pending
+  running
+  succeeded
+  failed
+  skipped
+  retrying
+}
+
+// One row per attempted unit of work in a deployment's step sequence
+// (see services/provisioning/steps/*). Steps are idempotent: re-running a
+// deployment re-evaluates each step's status and only (re)executes what
+// isn't already `succeeded`.
+model DeploymentStep {
+  id                String  @id @default(cuid())
+  deploymentId      String
+  desiredResourceId String?
+
+  stepKey  String // stable key, e.g. "create_workspace", "assign_permissions"
+  name     String
+  sequence Int
+
+  status  DeploymentStepStatus @default(pending)
+  attempt Int                  @default(0)
+
+  startedAt  DateTime?
+  finishedAt DateTime?
+
+  requestMetadata  Json?
+  responseMetadata Json?
+
+  errorCode    String?
+  errorMessage String?
+  resourceId   String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  deployment      Deployment       @relation(fields: [deploymentId], references: [id], onDelete: Cascade)
+  desiredResource DesiredResource? @relation(fields: [desiredResourceId], references: [id])
+
+  longRunningOperations LongRunningOperation[]
+
+  @@unique([deploymentId, stepKey])
+  @@index([deploymentId, sequence])
+  @@index([status])
+}
+
+enum LroStatus {
+  NotStarted
+  Running
+  Succeeded
+  Failed
+  Cancelled
+}
+
+// Tracks a Fabric 202-Accepted Long Running Operation across polls, so a
+// server restart or job-runner handoff can resume polling instead of
+// losing track of an in-flight Fabric operation.
+model LongRunningOperation {
+  id               String @id @default(cuid())
+  deploymentStepId String
+
+  operationId       String // Fabric's x-ms-operation-id
+  status            LroStatus @default(NotStarted)
+  retryAfterSeconds Int?
+  resourceId        String?
+  requestId         String?
+  percentComplete   Int?
+
+  resultJson Json?
+  errorJson  Json?
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  polledAt  DateTime?
+
+  deploymentStep DeploymentStep @relation(fields: [deploymentStepId], references: [id], onDelete: Cascade)
+
+  @@unique([deploymentStepId, operationId])
+  @@index([status])
+}

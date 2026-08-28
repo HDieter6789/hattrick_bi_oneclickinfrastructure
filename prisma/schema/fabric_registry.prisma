@@ -1,0 +1,104 @@
+enum FabricCapabilityCategory {
+  storage
+  compute
+  pipeline
+  analytics
+  realtime
+  data_science
+  reporting
+  governance
+  other
+}
+
+// A row per Fabric item type documented as provisionable through the
+// Fabric REST API. This table — not application code — is the source of
+// truth for "what can OneClick create". See docs/FABRIC_API.md for how to
+// add a new capability as Microsoft ships new item types.
+model FabricCapability {
+  id          String                   @id @default(cuid())
+  itemType    String                   @unique // Fabric `ItemType` enum value, e.g. "Lakehouse"
+  displayName String
+  category    FabricCapabilityCategory @default(other)
+  description String?
+
+  apiPath String // relative path segment under /v1/workspaces/{workspaceId}/..., e.g. "lakehouses"
+
+  createSupported           Boolean @default(false)
+  updateSupported           Boolean @default(false)
+  deleteSupported           Boolean @default(false)
+  definitionSupported       Boolean @default(false) // GET/UPDATE definition (base64 parts)
+  creationPayloadSupported  Boolean @default(false) // typed creationPayload on create
+  folderSupported           Boolean @default(true)
+  servicePrincipalSupported Boolean @default(true)
+
+  requiredScopes String[] // Entra delegated scopes, e.g. ["Lakehouse.ReadWrite.All"]
+
+  schemaVersion    Int       @default(1)
+  documentationUrl String?
+  lastVerifiedAt   DateTime?
+  enabled          Boolean   @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  parameterSchemas   FabricParameterSchema[]
+  desiredResources   DesiredResource[]
+  blueprintResources BlueprintResource[]
+
+  @@index([category])
+  @@index([enabled])
+}
+
+enum ParameterInputType {
+  text
+  textarea
+  number
+  boolean
+  select
+  multiSelect
+  json
+  password
+  resourcePicker
+  workspacePicker
+  folderPicker
+  connectionPicker
+  userPicker
+  date
+  datetime
+}
+
+enum ParameterMode {
+  basic
+  advanced
+  raw
+}
+
+// One configurable field for a FabricCapability's create/update payload.
+// Rendered generically by DynamicFabricForm — no per-item-type React form
+// is created for this data.
+model FabricParameterSchema {
+  id                 String @id @default(cuid())
+  fabricCapabilityId String
+
+  key         String
+  label       String
+  description String?
+  inputType   ParameterInputType
+  mode        ParameterMode      @default(basic)
+
+  required       Boolean @default(false)
+  defaultValue   Json?
+  optionsJson    Json? // for select/multiSelect: [{ value, label }]
+  validationJson Json? // additional Zod-shaped constraints (min/max/pattern/enum)
+
+  // Dot-path within the generated Fabric payload this field maps to,
+  // e.g. "creationPayload.defaultSchema" or "displayName".
+  targetPath String
+
+  sortOrder Int @default(0)
+
+  fabricCapability FabricCapability @relation(fields: [fabricCapabilityId], references: [id], onDelete: Cascade)
+
+  @@unique([fabricCapabilityId, key])
+  @@index([fabricCapabilityId, mode])
+}

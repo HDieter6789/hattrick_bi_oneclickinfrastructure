@@ -1,0 +1,32 @@
+enum AuditStatus {
+  success
+  failure
+}
+
+// Append-only. Never persist secret values here — see
+// services/audit/redact.ts, which every write path must run payloads
+// through before persistence.
+model AuditLog {
+  id           String  @id @default(cuid())
+  userId       String?
+  customerId   String?
+  deploymentId String?
+
+  action       String // e.g. "deployment.create", "connection.authenticate"
+  resourceType String?
+  resourceId   String?
+  status       AuditStatus @default(success)
+
+  correlationId String?
+  metadata      Json?
+
+  createdAt DateTime @default(now())
+
+  user     User?     @relation(fields: [userId], references: [id])
+  customer Customer? @relation(fields: [customerId], references: [id])
+
+  @@index([userId])
+  @@index([customerId])
+  @@index([action])
+  @@index([createdAt])
+}

@@ -1,0 +1,54 @@
+enum ArchitecturePattern {
+  simple
+  medallion
+  enterprise
+  custom
+}
+
+// Blueprints are data, not hardcoded UI. Seeded rows (Blank, Basic
+// Lakehouse, Medallion, Data Warehouse, Power BI Analytics, Realtime
+// Analytics, Data Science, Enterprise Data Platform) live in
+// prisma/seed/blueprints.ts and can be cloned/exported/imported/versioned
+// like any other row.
+model Blueprint {
+  id           String              @id @default(cuid())
+  key          String              @unique // stable machine key, e.g. "medallion"
+  name         String
+  description  String?
+  pattern      ArchitecturePattern @default(custom)
+  version      Int                 @default(1)
+  isSystem     Boolean             @default(false) // seeded, not user-deletable
+  clonedFromId String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  resources      BlueprintResource[]
+  configurations InfrastructureConfiguration[]
+  clonedFrom     Blueprint?                    @relation("BlueprintClone", fields: [clonedFromId], references: [id])
+  clones         Blueprint[]                   @relation("BlueprintClone")
+
+  @@index([pattern])
+}
+
+// One logical resource within a blueprint (e.g. "LH_Bronze"). References a
+// FabricCapability by itemType rather than duplicating capability logic.
+model BlueprintResource {
+  id          String @id @default(cuid())
+  blueprintId String
+
+  itemType            String // matches FabricCapability.itemType
+  logicalName         String // e.g. "bronze", "gold_pipeline"
+  displayNameTemplate String // e.g. "{customer}_{environment}_brz_lh"
+  configuration       Json     @default("{}")
+  dependsOn           String[] // logicalName[] of other BlueprintResources in this blueprint
+  optional            Boolean  @default(false)
+  layer               String? // "bronze" | "silver" | "gold" | null
+
+  sortOrder Int @default(0)
+
+  blueprint        Blueprint         @relation(fields: [blueprintId], references: [id], onDelete: Cascade)
+  fabricCapability FabricCapability? @relation(fields: [itemType], references: [itemType])
+
+  @@unique([blueprintId, logicalName])
+}

@@ -1,0 +1,137 @@
+enum InfrastructureConfigurationStatus {
+  draft
+  finalized
+}
+
+// The customer's overall desired setup: architecture choice, self-service
+// options, monitoring options, naming convention. This is the thing that
+// gets versioned (ConfigurationVersion) and turned into a Deployment plan.
+model InfrastructureConfiguration {
+  id          String  @id @default(cuid())
+  customerId  String
+  blueprintId String?
+
+  name            String
+  environmentMode CustomerEnvironmentMode @default(single)
+  architecture    ArchitecturePattern     @default(medallion)
+
+  namingConventionTemplate String @default("{customer}_{environment}_{layer}_{type}")
+
+  sqlSelfServiceEnabled     Boolean @default(false)
+  sqlSelfServiceTargetLayer String  @default("gold")
+  sqlIncludeInWelcomeEmail  Boolean @default(true)
+
+  semanticModelEnabled Boolean @default(false)
+  starterReportEnabled Boolean @default(false)
+
+  usageReportEnabled       Boolean @default(false)
+  usageReportOptionsJson   Json    @default("{}") // { serviceStatus, dataFreshness, refreshSuccess, usageTrend, advancedTechnicalMetrics }
+  operationalAlertsEnabled Boolean @default(false)
+
+  status         InfrastructureConfigurationStatus @default(draft)
+  currentVersion Int                               @default(1)
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  createdById String?
+
+  customer  Customer   @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  blueprint Blueprint? @relation(fields: [blueprintId], references: [id])
+
+  versions    ConfigurationVersion[]
+  deployments Deployment[]
+  connections Connection[]             @relation("ConfigurationConnections")
+  ingestions  IngestionConfiguration[]
+
+  @@index([customerId])
+}
+
+model ConfigurationVersion {
+  id                            String @id @default(cuid())
+  infrastructureConfigurationId String
+  version                       Int
+
+  snapshotJson  Json // full serialized InfrastructureConfiguration + resources at this point
+  changeSummary String?
+
+  createdAt   DateTime @default(now())
+  createdById String?
+
+  infrastructureConfiguration InfrastructureConfiguration @relation(fields: [infrastructureConfigurationId], references: [id], onDelete: Cascade)
+
+  @@unique([infrastructureConfigurationId, version])
+}
+
+enum DesiredResourceStatus {
+  pending
+  validating
+  ready
+  running
+  succeeded
+  failed
+  skipped
+  rollback_pending
+  rolled_back
+}
+
+// Every requested Fabric resource, independent from the actual Fabric API
+// shape. This abstraction is mandatory: the provisioning engine, DAG
+// builder and idempotency checks all operate on DesiredResource, never on
+// raw Fabric payloads directly.
+model DesiredResource {
+  id           String @id @default(cuid())
+  deploymentId String
+
+  type          String // FabricCapability.itemType
+  logicalName   String // unique within the deployment, e.g. "gold_lakehouse"
+  displayName   String
+  configuration Json     @default("{}") // resolved parameter values (basic+advanced+raw merged)
+  dependsOn     String[] // logicalName[] of other DesiredResources in this deployment
+
+  status           DesiredResourceStatus @default(pending)
+  actualResourceId String? // Fabric item id once created, denormalized for quick lookup
+
+  layer String? // "bronze" | "silver" | "gold" | null, for medallion-aware UI
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  deployment       Deployment        @relation(fields: [deploymentId], references: [id], onDelete: Cascade)
+  fabricCapability FabricCapability? @relation(fields: [type], references: [itemType])
+  actualResource   ActualResource?
+  steps            DeploymentStep[]
+
+  @@unique([deploymentId, logicalName])
+  @@index([deploymentId, status])
+}
+
+enum ActualResourceProvisioningStatus {
+  provisioning
+  active
+  degraded
+  failed
+  deleted
+}
+
+// The real, Fabric-side counterpart of a DesiredResource once it has been
+// created. Kept separate so reconciliation ("does the desired resource
+// already exist?") never has to parse Fabric API responses ad hoc.
+model ActualResource {
+  id                String @id @default(cuid())
+  desiredResourceId String @unique
+
+  fabricWorkspaceId String
+  fabricItemId      String
+  fabricItemType    String
+
+  provisioningStatus ActualResourceProvisioningStatus @default(provisioning)
+  metadataJson       Json                             @default("{}") // e.g. sqlEndpointProperties
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  desiredResource DesiredResource @relation(fields: [desiredResourceId], references: [id], onDelete: Cascade)
+
+  @@unique([fabricWorkspaceId, fabricItemId])
+  @@index([fabricWorkspaceId])
+}

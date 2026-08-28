@@ -1,0 +1,118 @@
+enum ConnectorCategory {
+  microsoft
+  databases
+  cloud_storage
+  saas
+  files
+  web
+  analytics
+  erp
+  crm
+  other
+}
+
+// Synced periodically from GET /v1/connections/supportedConnectionTypes —
+// never hand-maintained per connector. See docs/CONNECTORS.md.
+model ConnectorMetadata {
+  id                           String            @id @default(cuid())
+  connectionTypeKey            String            @unique // Fabric connection type, e.g. "SQL", "Salesforce"
+  displayName                  String
+  category                     ConnectorCategory @default(other)
+  creationMethodsJson          Json              @default("[]") // Fabric creationMethods[] (typed parameters per method)
+  supportedCredentialTypesJson Json              @default("[]")
+  gatewayRequired              Boolean           @default(false)
+  iconKey                      String?
+  enabled                      Boolean           @default(true)
+  lastSyncedAt                 DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  connections Connection[]
+
+  @@index([category])
+}
+
+enum ConnectionAuthMethod {
+  OAuth2
+  UsernamePassword
+  ServicePrincipal
+  APIKey
+  AccountKey
+  SAS
+  Anonymous
+  OrganizationalAccount
+  Gateway
+  Key
+  Windows
+  WindowsWithoutImpersonation
+  SharedAccessSignature
+  WorkspaceIdentity
+  KeyPair
+}
+
+enum ConnectionHealth {
+  unknown
+  healthy
+  degraded
+  failed
+}
+
+enum ConnectionStatus {
+  draft
+  authenticating
+  connected
+  error
+  disabled
+}
+
+model Connection {
+  id                            String  @id @default(cuid())
+  customerId                    String
+  infrastructureConfigurationId String?
+  connectorTypeKey              String
+
+  displayName    String
+  authMethod     ConnectionAuthMethod
+  status         ConnectionStatus     @default(draft)
+  parametersJson Json                 @default("{}") // non-secret connection parameters (server, database, ...)
+
+  fabricConnectionId String? // resolved Fabric-side connection id once created
+
+  connectedAt      DateTime?
+  expiresAt        DateTime?
+  lastValidationAt DateTime?
+  health           ConnectionHealth @default(unknown)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  customer      Customer                     @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  configuration InfrastructureConfiguration? @relation("ConfigurationConnections", fields: [infrastructureConfigurationId], references: [id])
+  connector     ConnectorMetadata            @relation(fields: [connectorTypeKey], references: [connectionTypeKey])
+
+  secretReferences ConnectionSecretReference[]
+  ingestions       IngestionConfiguration[]
+
+  @@index([customerId])
+  @@index([status])
+}
+
+// The database NEVER stores plain-text credentials — only a reference
+// into the SecretProvider (Azure Key Vault in production, an in-memory
+// vault in dev/demo mode). See services/secrets/SecretProvider.ts.
+model ConnectionSecretReference {
+  id           String @id @default(cuid())
+  connectionId String
+  customerId   String
+
+  secretReference String // vault-specific reference (e.g. Key Vault secret name/version)
+  connectionType  String // duplicated for quick filtering without a join
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  connection Connection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+
+  @@index([customerId])
+}

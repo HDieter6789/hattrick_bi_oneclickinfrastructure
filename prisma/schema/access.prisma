@@ -1,0 +1,53 @@
+enum CustomerAccessKind {
+  gold_read
+  sql_read
+  report_view
+  semantic_model_build
+  portal_access
+}
+
+enum CustomerAccessPrincipalType {
+  existing_entra_user
+  guest_invite
+  internal_user
+  security_group
+  service_principal
+}
+
+enum CustomerAccessStatus {
+  pending
+  granted
+  revoked
+  failed
+}
+
+// Explicit, auditable record of what a customer principal was granted —
+// deliberately narrow (see section "Customer Access Design"): customers
+// never get workspace admin, Bronze/Silver, pipeline or notebook access.
+// Groups are preferred over individual assignments
+// (CUSTOMER-{customerId}-READERS / CUSTOMER-{customerId}-BI).
+model CustomerAccess {
+  id         String @id @default(cuid())
+  customerId String
+
+  kind          CustomerAccessKind
+  principalType CustomerAccessPrincipalType
+  principalId   String // Entra object id of the user/group/service principal
+  groupName     String? // e.g. "CUSTOMER-acme-READERS"
+
+  fabricWorkspaceId String?
+  fabricItemId      String?
+  fabricRole        String? // Fabric "Viewer" etc — never "Admin"/"Contributor" for customers
+
+  status    CustomerAccessStatus @default(pending)
+  grantedAt DateTime?
+  revokedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([customerId])
+  @@index([status])
+}

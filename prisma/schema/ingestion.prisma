@@ -1,0 +1,44 @@
+enum LoadMethod {
+  full
+  incremental
+  cdc
+}
+
+enum IngestionScheduleFrequency {
+  manual
+  hourly
+  every_6_hours
+  daily
+  weekly
+}
+
+model IngestionConfiguration {
+  id                            String @id @default(cuid())
+  connectionId                  String
+  infrastructureConfigurationId String
+
+  sourceObject    String // table/object/file path in the source
+  loadMethod      LoadMethod @default(full)
+  watermarkColumn String?
+
+  destinationLogicalName String // DesiredResource.logicalName of the destination Lakehouse/table
+  destinationTable       String?
+
+  scheduleFrequency IngestionScheduleFrequency @default(daily)
+  scheduleCron      String? // resolved cron expression for the chosen frequency
+
+  // Fabric-side objects this ingestion resolves to once deployed
+  // (a Copy Job or Pipeline id, populated by the provisioning engine).
+  fabricPipelineItemId String?
+
+  lastRunAt     DateTime?
+  lastRunStatus String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  connection    Connection                  @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+  configuration InfrastructureConfiguration @relation(fields: [infrastructureConfigurationId], references: [id], onDelete: Cascade)
+
+  @@index([infrastructureConfigurationId])
+}

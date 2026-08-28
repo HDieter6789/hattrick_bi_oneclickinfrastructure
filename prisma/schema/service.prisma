@@ -1,0 +1,61 @@
+enum ServiceSkill {
+  fabric
+  power_bi
+  data_engineering
+  data_science
+  realtime
+}
+
+model ServiceAgent {
+  id     String  @id @default(cuid())
+  userId String  @unique
+  active Boolean @default(true)
+
+  // External calendar identity used to look up/create events (e.g. the
+  // agent's Entra userPrincipalName used against Microsoft Graph /me/calendar).
+  calendarUserId String?
+
+  skills           ServiceSkill[]
+  language         String         @default("en")
+  workingHoursJson Json           @default("{}")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  appointments Appointment[]
+
+  @@index([active])
+}
+
+enum AppointmentStatus {
+  pending
+  confirmed
+  cancelled
+  completed
+}
+
+model Appointment {
+  id             String  @id @default(cuid())
+  customerId     String
+  serviceAgentId String?
+
+  startTime DateTime
+  endTime   DateTime
+  status    AppointmentStatus @default(pending)
+
+  calendarEventId String?
+  notes           String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  customer     Customer      @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  serviceAgent ServiceAgent? @relation(fields: [serviceAgentId], references: [id])
+
+  deployments Deployment[]
+
+  @@index([customerId])
+  @@index([status])
+  @@index([startTime])
+}

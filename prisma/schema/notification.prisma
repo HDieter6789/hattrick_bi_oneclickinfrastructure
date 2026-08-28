@@ -1,0 +1,93 @@
+enum NotificationChannel {
+  email
+  portal
+}
+
+enum NotificationStatus {
+  pending
+  sent
+  failed
+}
+
+enum NotificationType {
+  welcome_email
+  appointment_confirmation
+  deployment_failed
+  service_status_change
+  general
+}
+
+model Notification {
+  id         String  @id @default(cuid())
+  customerId String?
+  userId     String?
+
+  type    NotificationType
+  channel NotificationChannel @default(email)
+  status  NotificationStatus  @default(pending)
+
+  subject     String?
+  bodyPreview String? // short, non-sensitive preview for admin UI; full body not persisted verbatim
+
+  sentAt DateTime?
+  error  String?
+
+  createdAt DateTime @default(now())
+
+  customer Customer? @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  user     User?     @relation(fields: [userId], references: [id])
+
+  @@index([customerId])
+  @@index([status])
+}
+
+enum AlertSeverity {
+  info
+  warning
+  critical
+}
+
+enum AlertStatus {
+  open
+  acknowledged
+  resolved
+}
+
+enum AlertSourceEvent {
+  pipeline_failure
+  initial_load_failure
+  connection_failure
+  oauth_expired
+  data_freshness_sla_breach
+  repeated_job_failures
+  sql_endpoint_unavailable
+  unexpected_growth
+}
+
+// Operational alerts. Admin portal shows all fields; the customer portal
+// only ever surfaces a filtered, simplified "service notification" view
+// derived from customer-relevant alerts (see features/customer-portal).
+model Alert {
+  id         String  @id @default(cuid())
+  customerId String?
+
+  sourceEvent AlertSourceEvent
+  severity    AlertSeverity    @default(warning)
+  status      AlertStatus      @default(open)
+
+  title   String
+  detail  String?
+  context Json?
+
+  customerVisible Boolean @default(false)
+
+  createdAt      DateTime  @default(now())
+  acknowledgedAt DateTime?
+  resolvedAt     DateTime?
+
+  customer Customer? @relation(fields: [customerId], references: [id])
+
+  @@index([customerId])
+  @@index([status])
+  @@index([severity])
+}

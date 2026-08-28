@@ -1,0 +1,91 @@
+enum CustomerStatus {
+  draft
+  configuration
+  ready_for_deployment
+  deploying
+  active
+  error
+  suspended
+}
+
+enum ServiceTier {
+  starter
+  standard
+  enterprise
+}
+
+enum CustomerEnvironmentMode {
+  single
+  dev_test_prod
+}
+
+model Customer {
+  id String @id @default(cuid())
+
+  companyName      String
+  contactFirstName String
+  contactLastName  String
+  contactEmail     String
+  contactPhone     String?
+
+  // Microsoft Entra tenant the customer's users belong to (their own
+  // tenant for B2B guest invites, or our tenant for internally-created
+  // customer accounts).
+  tenantId String?
+  domain   String?
+
+  environmentMode CustomerEnvironmentMode @default(single)
+  serviceTier     ServiceTier             @default(standard)
+  status          CustomerStatus          @default(draft)
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  createdById String?
+
+  users                    CustomerUser[]
+  configurations           InfrastructureConfiguration[]
+  deployments              Deployment[]
+  connections              Connection[]
+  appointments             Appointment[]
+  notifications            Notification[]
+  alerts                   Alert[]
+  accessGrants             CustomerAccess[]
+  sqlEndpoints             SqlEndpoint[]
+  monitoringConfigurations MonitoringConfiguration[]
+  datasetCatalogEntries    DatasetCatalogEntry[]
+  auditLogs                AuditLog[]
+
+  @@index([status])
+  @@index([companyName])
+}
+
+enum CustomerUserRole {
+  customer_admin
+  customer_user
+}
+
+enum CustomerUserStatus {
+  invited
+  active
+  disabled
+}
+
+// Membership of a User inside a Customer's tenant space, with a
+// customer-scoped role independent from any internal platform role.
+model CustomerUser {
+  id         String @id @default(cuid())
+  customerId String
+  userId     String
+
+  role   CustomerUserRole   @default(customer_user)
+  status CustomerUserStatus @default(invited)
+
+  invitedAt   DateTime  @default(now())
+  activatedAt DateTime?
+
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([customerId, userId])
+  @@index([customerId])
+}
