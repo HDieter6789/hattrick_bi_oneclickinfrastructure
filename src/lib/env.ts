@@ -60,6 +60,15 @@ const envSchema = z.object({
   // without it; provisioning a new workspace without it configured will
   // itself fail at the Fabric API, by design (no silent fallback).
   FABRIC_CAPACITY_ID: z.string().optional(),
+  // A workspace created purely by the provisioning service principal has
+  // no human member at all — internal staff (platform_admin/operations)
+  // can't see or manage it in the Fabric portal without being explicitly
+  // added. If set, every newly created workspace grants this principal
+  // "Admin" (see create-workspace.ts) so staff retain visibility; this is
+  // separate from — and unrelated to — the strictly Viewer-only access the
+  // access_configuration step grants to CUSTOMER principals.
+  FABRIC_INTERNAL_ADMIN_PRINCIPAL_ID: z.string().optional(),
+  FABRIC_INTERNAL_ADMIN_PRINCIPAL_TYPE: z.enum(["User", "Group", "ServicePrincipal"]).default("User"),
   FABRIC_SERVICE_PRINCIPAL_CLIENT_ID: z.string().optional(),
   FABRIC_SERVICE_PRINCIPAL_CLIENT_SECRET: z.string().optional(),
 
