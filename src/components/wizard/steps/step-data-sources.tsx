@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { toast } from "sonner";
-import { Cable, X } from "lucide-react";
+import { Cable, FlaskConical, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -16,19 +16,51 @@ interface ApiConnection {
   connectorTypeKey: string;
 }
 
+/**
+ * Public, credential-free Microsoft sample dataset (NYC TLC trip records,
+ * widely used in Fabric/Power BI tutorials) — a real Azure Blob Storage
+ * account with anonymous read access, not a fabricated data source. Reusing
+ * the generic Azure Blob Storage connector with `authMethod: "Anonymous"`
+ * (see prisma/seed/connectors.ts) rather than a bespoke "SampleData"
+ * connector, so this stays a preset payload for the existing generic
+ * Connection Hub flow instead of new per-source UI.
+ */
+const SAMPLE_DATA_CONNECTION: Omit<CreateConnectionPayload, "customerId"> = {
+  connectorTypeKey: "AzureBlobStorage",
+  displayName: "NYC Taxi (public sample data)",
+  authMethod: "Anonymous",
+  parameters: { account: "azureopendatastorage", domain: "blob.core.windows.net" },
+};
+
 export function StepDataSources({ data, update, goNext, goBack }: WizardStepProps) {
   const [selectedConnector, setSelectedConnector] = useState<ConnectorCatalogItem | null>(null);
+  const [addingSample, setAddingSample] = useState(false);
 
-  async function handleCreateConnection(payload: CreateConnectionPayload) {
+  async function createConnection(payload: Omit<CreateConnectionPayload, "customerId">) {
     if (!data.customerId) return;
     const { connection } = await fetchJson<{ connection: ApiConnection }>("/api/connections", {
       method: "POST",
       headers: jsonHeaders(),
-      body: JSON.stringify({ ...payload, infrastructureConfigurationId: data.configurationId ?? undefined }),
+      body: JSON.stringify({ ...payload, customerId: data.customerId, infrastructureConfigurationId: data.configurationId ?? undefined }),
     });
     toast.success(`Connection "${connection.displayName}" created.`);
     update({ connections: [...data.connections, connection] });
+  }
+
+  async function handleCreateConnection(payload: CreateConnectionPayload) {
+    await createConnection(payload);
     setSelectedConnector(null);
+  }
+
+  async function handleAddSampleData() {
+    setAddingSample(true);
+    try {
+      await createConnection(SAMPLE_DATA_CONNECTION);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to add sample data connection");
+    } finally {
+      setAddingSample(false);
+    }
   }
 
   function removeConnection(id: string) {
@@ -61,7 +93,25 @@ export function StepDataSources({ data, update, goNext, goBack }: WizardStepProp
         )}
 
         {!selectedConnector ? (
-          <ConnectorCatalog onSelect={setSelectedConnector} />
+          <>
+            {!data.connections.some((c) => c.displayName === SAMPLE_DATA_CONNECTION.displayName) && (
+              <div className="flex items-center justify-between gap-3 rounded-lg border border-dashed p-3">
+                <div className="flex items-center gap-2">
+                  <FlaskConical className="size-4 text-muted-foreground" />
+                  <div>
+                    <p className="text-sm font-medium">Just testing?</p>
+                    <p className="text-xs text-muted-foreground">
+                      Add Microsoft&apos;s public NYC Taxi sample dataset — no credentials needed.
+                    </p>
+                  </div>
+                </div>
+                <Button type="button" variant="outline" size="sm" onClick={handleAddSampleData} disabled={addingSample}>
+                  {addingSample ? "Adding…" : "Use sample data"}
+                </Button>
+              </div>
+            )}
+            <ConnectorCatalog onSelect={setSelectedConnector} />
+          </>
         ) : (
           <div className="flex flex-col gap-3 rounded-lg border p-4">
             <p className="text-sm font-medium">{selectedConnector.displayName}</p>

@@ -216,7 +216,10 @@ export const connectorSeed: ConnectorSeed[] = [
     connectionTypeKey: "AzureBlobStorage",
     displayName: "Azure Blob Storage",
     category: "cloud_storage",
-    authMethods: ["AccountKey", "SAS", "ServicePrincipal"],
+    // "Anonymous" is real, documented Fabric behavior for public read-only
+    // containers (e.g. Microsoft's own public sample datasets) — not a
+    // fabricated capability; see docs/CONNECTORS.md.
+    authMethods: ["AccountKey", "SAS", "ServicePrincipal", "Anonymous"],
     iconKey: "blob-storage",
     creationMethods: [
       {
