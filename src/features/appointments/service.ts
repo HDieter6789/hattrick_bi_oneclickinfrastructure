@@ -5,7 +5,7 @@ import { requireCustomerAccess } from "@/lib/require-customer-access";
 import { childLogger } from "@/lib/logger";
 import { getCalendarService, type AvailableSlot } from "@/services/calendar";
 import { autoAssignServiceAgent } from "@/services/appointments/auto-assign";
-import type { Appointment, ServiceAgent } from "@/generated/prisma/client";
+import type { Appointment, ServiceAgent, User } from "@/generated/prisma/client";
 import {
   bookAppointmentInput,
   createServiceAgentInput,
@@ -62,7 +62,9 @@ export async function deactivateServiceAgent(serviceAgentId: string): Promise<Se
   return agent;
 }
 
-export async function listServiceAgents(draft: ListServiceAgentsQueryDraft = {}): Promise<ServiceAgent[]> {
+export async function listServiceAgents(
+  draft: ListServiceAgentsQueryDraft = {},
+): Promise<(ServiceAgent & { user: User })[]> {
   // Any authenticated user may list agents — a customer booking their own
   // onboarding needs to see the roster to pick one manually. Nothing
   // customer-scoped is read here (ServiceAgent has no customerId), so
@@ -75,6 +77,7 @@ export async function listServiceAgents(draft: ListServiceAgentsQueryDraft = {})
       ...(input.skill ? { skills: { has: input.skill } } : {}),
       ...(input.language ? { language: input.language } : {}),
     },
+    include: { user: true },
     orderBy: { createdAt: "asc" },
   });
 }

@@ -16,10 +16,12 @@ import { fetchJson, jsonHeaders } from "@/components/admin-portal/api";
 import { updateServiceAgentInput, type UpdateServiceAgentDraft } from "@/features/appointments/schemas";
 import { ServiceSkill } from "@/generated/prisma/enums";
 import { formStateToWorkingHoursJson, workingHoursJsonToFormState, WorkingHoursEditor, type WorkingHoursFormState } from "../_working-hours-editor";
-import type { ServiceAgent } from "@/generated/prisma/client";
+import type { ServiceAgent, User } from "@/generated/prisma/client";
+
+type AgentWithUser = ServiceAgent & { user: User };
 
 interface AgentsResponse {
-  agents: ServiceAgent[];
+  agents: AgentWithUser[];
 }
 interface AgentResponse {
   agent: ServiceAgent;
@@ -28,7 +30,7 @@ interface AgentResponse {
 // GET /api/service-agents/[id] doesn't exist as a single-resource read
 // (only PATCH/DELETE) — the list endpoint is filtered client-side instead,
 // consistent with how few service agents there typically are.
-async function fetchAgent(id: string): Promise<ServiceAgent | undefined> {
+async function fetchAgent(id: string): Promise<AgentWithUser | undefined> {
   const body = await fetchJson<AgentsResponse>("/api/service-agents?activeOnly=false");
   return body.agents.find((a) => a.id === id);
 }
@@ -57,7 +59,7 @@ export default function ServiceAgentDetailPage({ params }: { params: Promise<{ i
   );
 }
 
-function ServiceAgentEditor({ agentId, initial }: { agentId: string; initial: ServiceAgent }) {
+function ServiceAgentEditor({ agentId, initial }: { agentId: string; initial: AgentWithUser }) {
   const router = useRouter();
   const queryClient = useQueryClient();
 
@@ -115,7 +117,7 @@ function ServiceAgentEditor({ agentId, initial }: { agentId: string; initial: Se
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <span className="font-mono text-sm">{initial.userId}</span>
+          <span className="text-sm">{initial.user.name ?? initial.user.email}</span>
           <Badge variant={initial.active ? "default" : "outline"}>{initial.active ? "Active" : "Inactive"}</Badge>
         </CardTitle>
       </CardHeader>

@@ -9,17 +9,15 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { fetchJson } from "@/components/admin-portal/api";
-import type { ServiceAgent } from "@/generated/prisma/client";
+import type { ServiceAgent, User } from "@/generated/prisma/client";
+
+type AgentWithUser = ServiceAgent & { user: User };
 
 interface AgentsResponse {
-  agents: ServiceAgent[];
+  agents: AgentWithUser[];
 }
 
-// NOTE: GET /api/service-agents (features/appointments/service.ts's
-// listServiceAgents) returns bare ServiceAgent rows with no `user` relation
-// joined, so the only human-readable identifier available here is the raw
-// userId — see this task's report for the suggested (out-of-scope) fix.
-async function fetchAgents(): Promise<ServiceAgent[]> {
+async function fetchAgents(): Promise<AgentWithUser[]> {
   const body = await fetchJson<AgentsResponse>("/api/service-agents?activeOnly=false");
   return body.agents;
 }
@@ -72,8 +70,8 @@ export default function ServiceAgentsPage() {
                 {agents?.map((agent) => (
                   <TableRow key={agent.id}>
                     <TableCell>
-                      <Link href={`/admin/service-agents/${agent.id}`} className="hover:underline font-mono text-xs">
-                        {agent.userId}
+                      <Link href={`/admin/service-agents/${agent.id}`} className="hover:underline">
+                        {agent.user.name ?? agent.user.email}
                       </Link>
                     </TableCell>
                     <TableCell>{agent.language}</TableCell>

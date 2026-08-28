@@ -187,11 +187,51 @@ grouped by bounded context: `auth`, `customer`, `service` (agents/appointments),
 `notification`, `audit`. See `docs/DEVELOPMENT.md` for the local setup and
 `docs/DEPLOYMENT.md` for migrations.
 
-## Known limitation: dev/test/prod environment fan-out
+## Known limitations
 
-`InfrastructureConfiguration.environmentMode` supports `single` and `dev_test_prod`, and
-the Prisma model is ready for it, but `services/provisioning/planner.ts` currently plans
-a single `"PROD"` environment regardless of the selected mode. Extending the planner to
-generate three parallel resource sets (one per environment, still sharing one
-`Blueprint`) is a contained follow-up — the DAG/engine/idempotency machinery already
-supports it without changes, since it operates per-`Deployment`.
+**Dev/test/prod environment fan-out.** `InfrastructureConfiguration.environmentMode`
+supports `single` and `dev_test_prod`, and the Prisma model is ready for it, but
+`services/provisioning/planner.ts` currently plans a single `"PROD"` environment
+regardless of the selected mode. Extending the planner to generate three parallel
+resource sets (one per environment, still sharing one `Blueprint`) is a contained
+follow-up — the DAG/engine/idempotency machinery already supports it without changes,
+since it operates per-`Deployment`.
+
+**User Access step has no persistence path.** The wizard's "User Access" step (step 8)
+collects email addresses in the browser but no API route yet turns them into
+`CustomerUser` rows — a `POST /api/customers/[id]/users` (or similar) endpoint plus a
+`CustomerUser`-creation call is a contained follow-up. Until then, the
+`access_configuration` provisioning step grants `portal_access`/`sql_read` only to
+`CustomerUser` rows that already exist (e.g. seeded, or created by an admin directly).
+
+**Some dynamic-parameter picker types have no backing list endpoint.** Of the seven
+`resourcePicker`/`workspacePicker`/`folderPicker`/`connectionPicker`/`userPicker` input
+types, only `connectionPicker` (backed by `GET /api/connections?customerId=`) renders as
+a real searchable combobox in the wizard's Fabric Resources step; the other four fall
+back to a plain "enter id" text field. Each needs a small listing route once there's a
+real source to list from (Fabric workspaces/folders, platform users).
+
+**No dedicated "Reports" read API.** The customer portal's Reports tab reuses
+`GET /api/portal/[customerId]/datasets` (filtered to `availableViaReport`) instead of a
+purpose-built endpoint, since no `Report`-specific customer-facing model/route exists yet
+beyond the `starterReportEnabled` flag and `DatasetCatalogEntry.availableViaReport`.
+
+**No rate limiting on sensitive endpoints.** Documented in `docs/SECURITY.md` — auth
+(`requireAuth`/`requireRole`/`requireCustomerAccess`) and Zod validation are enforced
+everywhere, but no per-IP/per-user request-rate throttling exists yet on mutating routes
+(deployment creation, connection creation, appointment booking). Recommended before
+production traffic: a Vercel Edge Config/KV-backed limiter or an API gateway in front of
+Next.js.
+
+**No live PostgreSQL in the development sandbox this project was built in.** `prisma
+validate`/`prisma generate` were run repeatedly and pass; `prisma migrate dev` was never
+run because no live database/shadow database was available, so **no migration files
+exist under `prisma/migrations/` yet**. The first `prisma migrate dev --name init`
+against a real database will generate them from the current, validated schema. See
+`docs/DEVELOPMENT.md`.
+
+**E2E coverage is minimal.** Only `tests/e2e/auth-gate.spec.ts` (unauthenticated-redirect
+checks, no database required) has actually been run. A fuller Playwright suite covering
+the wizard → deployment → portal flow needs a seeded database and was out of reach in
+this sandbox; unit/integration coverage (211 Vitest tests) is comprehensive for business
+logic, but no browser-driven end-to-end run has exercised the full UI.
