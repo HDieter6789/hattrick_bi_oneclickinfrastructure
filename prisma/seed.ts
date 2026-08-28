@@ -61,6 +61,7 @@ async function seedConnectors() {
       supportedCredentialTypesJson: connector.authMethods as unknown as Prisma.InputJsonValue,
       gatewayRequired: connector.gatewayRequired ?? false,
       iconKey: connector.iconKey,
+      enabled: connector.enabled ?? true,
       lastSyncedAt: new Date(),
     };
     await prisma.connectorMetadata.upsert({

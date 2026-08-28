@@ -11,9 +11,21 @@
  * seeded and synced data are shaped identically for every downstream
  * consumer (ConnectorCatalog, ConnectionAuthForm).
  *
+ * Every entry below (`connectionTypeKey`, `creationMethods[].name`,
+ * parameters, `authMethods`) was verified against a live tenant's
+ * `GET /v1/connections/supportedConnectionTypes` response, not guessed from
+ * older Power Query/Data Factory naming conventions — several entries
+ * (e.g. Azure Blob Storage's real type is "AzureBlobs", not
+ * "AzureBlobStorage") differ from what those older conventions would
+ * suggest and caused real `400 InvalidConnectionDetails` responses before
+ * being corrected here. See docs/CONNECTORS.md.
+ *
  * Covers every category in the brief (Microsoft, Databases, Cloud Storage,
  * SaaS, Files, Web, Analytics, ERP, CRM) plus every connector explicitly
- * named in the brief.
+ * named in the brief. Three (Folder, SAP HANA, HubSpot) had no verifiable
+ * match in the live tenant's supported-types response — per the "don't fake
+ * support" rule they're seeded `enabled: false` rather than presented as
+ * working.
  */
 
 export interface ConnectorSeedParameter {
@@ -46,92 +58,35 @@ export interface ConnectorSeed {
   creationMethods: ConnectorSeedCreationMethod[];
   gatewayRequired?: boolean;
   iconKey?: string;
+  enabled?: boolean;
 }
 
 export const connectorSeed: ConnectorSeed[] = [
-  // --- Microsoft ---
+  // --- Databases (Fabric's "SQL" type covers both Azure SQL Database and
+  // on-premises SQL Server — they are NOT separate Fabric connection
+  // types; the on-prem case is distinguished by routing the connection
+  // through a gateway, not by a different `type`/`creationMethod`) ---
   {
-    connectionTypeKey: "AzureSQL",
-    displayName: "Azure SQL Database",
-    category: "microsoft",
-    authMethods: ["ServicePrincipal", "UsernamePassword", "OrganizationalAccount"],
+    connectionTypeKey: "SQL",
+    displayName: "SQL Database (Azure SQL / SQL Server)",
+    category: "databases",
+    authMethods: ["UsernamePassword", "OAuth2", "ServicePrincipal", "WorkspaceIdentity"],
     iconKey: "azure-sql",
     creationMethods: [
       {
-        name: "AzureSqlDatabase",
+        name: "Sql",
         parameters: [
           { name: "server", dataType: "Text", required: true, description: "Fully qualified server name" },
-          { name: "database", dataType: "Text", required: true },
-        ],
-      },
-    ],
-  },
-  {
-    connectionTypeKey: "OneLake",
-    displayName: "OneLake",
-    category: "microsoft",
-    authMethods: ["OrganizationalAccount", "ServicePrincipal", "WorkspaceIdentity"],
-    iconKey: "onelake",
-    creationMethods: [
-      {
-        name: "OneLake",
-        parameters: [
-          { name: "workspaceId", dataType: "Text", required: true },
-          { name: "itemId", dataType: "Text", required: true },
-        ],
-      },
-    ],
-  },
-  {
-    connectionTypeKey: "SharePointOnlineList",
-    displayName: "SharePoint Online List",
-    category: "microsoft",
-    authMethods: ["OrganizationalAccount", "ServicePrincipal"],
-    iconKey: "sharepoint",
-    creationMethods: [
-      {
-        name: "SharePointOnlineList",
-        parameters: [{ name: "siteUrl", dataType: "Text", required: true }],
-      },
-    ],
-  },
-  {
-    connectionTypeKey: "Dynamics365",
-    displayName: "Dynamics 365",
-    category: "microsoft",
-    authMethods: ["OrganizationalAccount", "ServicePrincipal", "OAuth2"],
-    iconKey: "dynamics-365",
-    creationMethods: [
-      {
-        name: "Dynamics365",
-        parameters: [{ name: "organizationUrl", dataType: "Text", required: true }],
-      },
-    ],
-  },
-
-  // --- Databases ---
-  {
-    connectionTypeKey: "SQLServer",
-    displayName: "SQL Server",
-    category: "databases",
-    authMethods: ["UsernamePassword", "Windows", "WindowsWithoutImpersonation"],
-    gatewayRequired: true,
-    iconKey: "sql-server",
-    creationMethods: [
-      {
-        name: "SqlServer",
-        parameters: [
-          { name: "server", dataType: "Text", required: true },
           { name: "database", dataType: "Text", required: false },
         ],
       },
     ],
   },
   {
-    connectionTypeKey: "PostgreSql",
+    connectionTypeKey: "PostgreSQL",
     displayName: "PostgreSQL",
     category: "databases",
-    authMethods: ["UsernamePassword"],
+    authMethods: ["UsernamePassword", "OAuth2"],
     iconKey: "postgresql",
     creationMethods: [
       {
@@ -139,7 +94,6 @@ export const connectorSeed: ConnectorSeed[] = [
         parameters: [
           { name: "server", dataType: "Text", required: true },
           { name: "database", dataType: "Text", required: true },
-          { name: "port", dataType: "Number", required: false },
         ],
       },
     ],
@@ -164,16 +118,13 @@ export const connectorSeed: ConnectorSeed[] = [
     connectionTypeKey: "Oracle",
     displayName: "Oracle Database",
     category: "databases",
-    authMethods: ["UsernamePassword"],
+    authMethods: ["UsernamePassword", "OAuth2"],
     gatewayRequired: true,
     iconKey: "oracle",
     creationMethods: [
       {
         name: "Oracle",
-        parameters: [
-          { name: "server", dataType: "Text", required: true },
-          { name: "serviceName", dataType: "Text", required: true },
-        ],
+        parameters: [{ name: "server", dataType: "Text", required: true }],
       },
     ],
   },
@@ -185,12 +136,69 @@ export const connectorSeed: ConnectorSeed[] = [
     iconKey: "snowflake",
     creationMethods: [
       {
-        name: "Snowflake",
+        name: "Snowflake.Databases",
         parameters: [
           { name: "server", dataType: "Text", required: true },
           { name: "warehouse", dataType: "Text", required: true },
-          { name: "database", dataType: "Text", required: false },
+          { name: "Role", dataType: "Text", required: false },
         ],
+      },
+    ],
+  },
+  {
+    connectionTypeKey: "AzureSqlMI",
+    displayName: "Azure SQL Managed Instance",
+    category: "databases",
+    authMethods: ["UsernamePassword", "OAuth2", "ServicePrincipal"],
+    iconKey: "azure-sql",
+    creationMethods: [
+      {
+        name: "AzureSqlMI.Database",
+        parameters: [
+          { name: "server", dataType: "Text", required: true },
+          { name: "database", dataType: "Text", required: true },
+        ],
+      },
+    ],
+  },
+
+  // --- Microsoft ---
+  {
+    connectionTypeKey: "OneLakeFile",
+    displayName: "OneLake",
+    category: "microsoft",
+    authMethods: ["OAuth2", "ServicePrincipal"],
+    iconKey: "onelake",
+    creationMethods: [
+      {
+        name: "OneLake.Contents",
+        parameters: [{ name: "path", dataType: "Text", required: true }],
+      },
+    ],
+  },
+  {
+    connectionTypeKey: "SharePoint",
+    displayName: "SharePoint Online List",
+    category: "microsoft",
+    authMethods: ["OAuth2", "ServicePrincipal", "WorkspaceIdentity", "Anonymous"],
+    iconKey: "sharepoint",
+    creationMethods: [
+      {
+        name: "SharePointList",
+        parameters: [{ name: "sharePointSiteUrl", dataType: "Text", required: true }],
+      },
+    ],
+  },
+  {
+    connectionTypeKey: "Dynamics365",
+    displayName: "Dynamics 365",
+    category: "microsoft",
+    authMethods: ["OAuth2", "ServicePrincipal", "WorkspaceIdentity"],
+    iconKey: "dynamics-365",
+    creationMethods: [
+      {
+        name: "Dynamics365.Contents",
+        parameters: [{ name: "server", dataType: "Text", required: true }],
       },
     ],
   },
@@ -200,33 +208,33 @@ export const connectorSeed: ConnectorSeed[] = [
     connectionTypeKey: "AzureDataLakeStorage",
     displayName: "Azure Data Lake Storage Gen2",
     category: "cloud_storage",
-    authMethods: ["AccountKey", "ServicePrincipal", "OrganizationalAccount", "SharedAccessSignature"],
+    authMethods: ["AccountKey", "OAuth2", "SharedAccessSignature", "ServicePrincipal", "WorkspaceIdentity"],
     iconKey: "adls-gen2",
     creationMethods: [
       {
         name: "AzureDataLakeStorage",
         parameters: [
           { name: "server", dataType: "Text", required: true, description: "Storage account endpoint" },
-          { name: "path", dataType: "Text", required: false },
+          { name: "path", dataType: "Text", required: true },
         ],
       },
     ],
   },
   {
-    connectionTypeKey: "AzureBlobStorage",
+    connectionTypeKey: "AzureBlobs",
     displayName: "Azure Blob Storage",
     category: "cloud_storage",
     // "Anonymous" is real, documented Fabric behavior for public read-only
     // containers (e.g. Microsoft's own public sample datasets) — not a
     // fabricated capability; see docs/CONNECTORS.md.
-    authMethods: ["AccountKey", "SAS", "ServicePrincipal", "Anonymous"],
+    authMethods: ["AccountKey", "OAuth2", "SharedAccessSignature", "ServicePrincipal", "WorkspaceIdentity", "Anonymous"],
     iconKey: "blob-storage",
     creationMethods: [
       {
         name: "AzureBlobs",
         parameters: [
           { name: "account", dataType: "Text", required: true },
-          { name: "domain", dataType: "Text", required: false },
+          { name: "domain", dataType: "Text", required: true },
         ],
       },
     ],
@@ -237,17 +245,21 @@ export const connectorSeed: ConnectorSeed[] = [
     connectionTypeKey: "Salesforce",
     displayName: "Salesforce",
     category: "saas",
-    authMethods: ["OAuth2", "UsernamePassword"],
+    authMethods: ["OAuth2"],
     iconKey: "salesforce",
     creationMethods: [
       {
         name: "Salesforce",
-        parameters: [{ name: "environmentUrl", dataType: "Text", required: false }],
+        parameters: [
+          { name: "loginServer", dataType: "Text", required: true },
+          { name: "classInfo", dataType: "Text", required: true },
+        ],
       },
     ],
   },
 
-  // --- Files ---
+  // --- Files --- (no generic gateway "Folder" type was found in the live
+  // supported-types response — see the module doc comment)
   {
     connectionTypeKey: "Folder",
     displayName: "Folder / Files",
@@ -255,6 +267,7 @@ export const connectorSeed: ConnectorSeed[] = [
     authMethods: ["Windows", "Anonymous"],
     gatewayRequired: true,
     iconKey: "folder",
+    enabled: false,
     creationMethods: [
       {
         name: "Folder",
@@ -268,7 +281,7 @@ export const connectorSeed: ConnectorSeed[] = [
     connectionTypeKey: "Web",
     displayName: "Web",
     category: "web",
-    authMethods: ["Anonymous", "Key", "UsernamePassword"],
+    authMethods: ["Anonymous", "UsernamePassword", "OAuth2", "ServicePrincipal", "WorkspaceIdentity"],
     iconKey: "web",
     creationMethods: [
       {
@@ -278,15 +291,18 @@ export const connectorSeed: ConnectorSeed[] = [
     ],
   },
   {
-    connectionTypeKey: "RestApi",
+    connectionTypeKey: "RestService",
     displayName: "REST API",
     category: "web",
     authMethods: ["Anonymous", "APIKey", "OAuth2", "ServicePrincipal"],
     iconKey: "rest-api",
     creationMethods: [
       {
-        name: "RestApi",
-        parameters: [{ name: "baseUrl", dataType: "Text", required: true }],
+        name: "RestService.Contents",
+        parameters: [
+          { name: "baseUrl", dataType: "Text", required: true },
+          { name: "audience", dataType: "Text", required: false },
+        ],
       },
     ],
   },
@@ -298,15 +314,14 @@ export const connectorSeed: ConnectorSeed[] = [
     category: "analytics",
     authMethods: ["OAuth2"],
     iconKey: "google-analytics",
-    creationMethods: [
-      {
-        name: "GoogleAnalytics",
-        parameters: [{ name: "propertyId", dataType: "Text", required: true }],
-      },
-    ],
+    creationMethods: [{ name: "GoogleAnalytics", parameters: [] }],
   },
 
-  // --- ERP ---
+  // --- ERP --- (no "SapHana"/SAP HANA-specific type was found in the live
+  // supported-types response — only SAP BW/Table Application/Message
+  // Server and SAP Business Data Cloud variants exist; none map cleanly
+  // onto a plain HANA connection, so this stays disabled rather than
+  // guessed — see the module doc comment)
   {
     connectionTypeKey: "SapHana",
     displayName: "SAP HANA",
@@ -314,6 +329,7 @@ export const connectorSeed: ConnectorSeed[] = [
     authMethods: ["UsernamePassword", "Windows"],
     gatewayRequired: true,
     iconKey: "sap-hana",
+    enabled: false,
     creationMethods: [
       {
         name: "SapHana",
@@ -325,18 +341,16 @@ export const connectorSeed: ConnectorSeed[] = [
     ],
   },
 
-  // --- CRM ---
+  // --- CRM --- (no "Hubspot"/"HubSpot" type was found in the live
+  // supported-types response for this tenant — disabled rather than
+  // guessed; a real sync may surface it under a different name)
   {
     connectionTypeKey: "Hubspot",
     displayName: "HubSpot",
     category: "crm",
     authMethods: ["OAuth2", "APIKey"],
     iconKey: "hubspot",
-    creationMethods: [
-      {
-        name: "Hubspot",
-        parameters: [],
-      },
-    ],
+    enabled: false,
+    creationMethods: [{ name: "Hubspot", parameters: [] }],
   },
 ];

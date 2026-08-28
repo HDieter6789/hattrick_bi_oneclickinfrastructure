@@ -148,4 +148,36 @@ describe("FabricConnectionService.createFabricConnection idempotency", () => {
       }),
     );
   });
+
+  it("uses the connector's Fabric creation-method name, not connectorTypeKey, when they differ", async () => {
+    // Regression test: sending connectorTypeKey as `creationMethod` when
+    // Fabric's real creation-method name differs (e.g. Snowflake's `type`
+    // is "Snowflake" but its creationMethod is "Snowflake.Databases", per a
+    // live tenant's supportedConnectionTypes — see
+    // prisma/seed/connectors.ts) produces a real Fabric 400
+    // InvalidConnectionDetails.
+    findUniqueOrThrow.mockResolvedValue({
+      id: "conn_3",
+      customerId: "cust_1",
+      connectorTypeKey: "Snowflake",
+      displayName: "My Snowflake",
+      authMethod: "UsernamePassword",
+      fabricConnectionId: null,
+      parametersJson: { server: "acme.snowflakecomputing.com", warehouse: "COMPUTE_WH" },
+      connector: {
+        gatewayRequired: false,
+        creationMethodsJson: [{ name: "Snowflake.Databases", parameters: [{ name: "server" }, { name: "warehouse" }] }],
+      },
+      secretReferences: [],
+    });
+    post.mockResolvedValue({ status: "Succeeded", result: { id: "fabric-conn-snowflake" }, error: null, operationId: null });
+    update.mockResolvedValue({ id: "conn_3", fabricConnectionId: "fabric-conn-snowflake" });
+
+    const service = new FabricConnectionService();
+    await service.createFabricConnection("conn_3");
+
+    const [, payload] = post.mock.calls[0] as [string, { connectionDetails: { type: string; creationMethod: string } }];
+    expect(payload.connectionDetails.type).toBe("Snowflake");
+    expect(payload.connectionDetails.creationMethod).toBe("Snowflake.Databases");
+  });
 });

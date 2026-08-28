@@ -26,7 +26,7 @@ interface ApiConnection {
  * Connection Hub flow instead of new per-source UI.
  */
 const SAMPLE_DATA_CONNECTION: Omit<CreateConnectionPayload, "customerId"> = {
-  connectorTypeKey: "AzureBlobStorage",
+  connectorTypeKey: "AzureBlobs",
   displayName: "NYC Taxi (public sample data)",
   authMethod: "Anonymous",
   parameters: { account: "azureopendatastorage", domain: "blob.core.windows.net" },

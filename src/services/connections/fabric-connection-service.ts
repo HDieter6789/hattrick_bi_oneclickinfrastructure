@@ -107,9 +107,18 @@ export class FabricConnectionService {
     const secretValue = secretRef ? await getSecretProvider().getSecret(secretRef.secretReference) : undefined;
     const parameters = (connection.parametersJson ?? {}) as Record<string, unknown>;
 
+    // Fabric's `creationMethod` is the connector's creation-method *name*,
+    // which does not always equal its `type` (== our `connectorTypeKey`) —
+    // e.g. Snowflake's type is "Snowflake" but its creationMethod is
+    // "Snowflake.Databases". Falling back to connectorTypeKey only if the
+    // catalog has no creation methods recorded (shouldn't happen for a
+    // synced/seeded connector, but fails safe rather than throwing).
+    const creationMethods = (connection.connector.creationMethodsJson ?? []) as { name: string }[];
+    const creationMethod = creationMethods[0]?.name ?? connection.connectorTypeKey;
+
     const connectionDetails = {
       type: connection.connectorTypeKey,
-      creationMethod: connection.connectorTypeKey,
+      creationMethod,
       parameters: toParameterList(parameters),
     };
 
