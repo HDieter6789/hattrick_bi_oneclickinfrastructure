@@ -20,6 +20,7 @@
 | `AUTH_SECRET` | Yes | Auth.js session/JWT signing secret — generate with `node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"` |
 | `AUTH_URL` | Production | Public base URL of the deployment |
 | `DEMO_MODE` | No (default `true`) | Set `false` in production — routes Fabric/Graph/Mail/Calendar to real adapters |
+| `FABRIC_LIVE_MODE` | No (default `false`) | Set `true` to route only the Fabric client to the real API while `DEMO_MODE` stays `true` (sign-in/Graph/mail/calendar remain mock) — useful for testing real provisioning without also standing up a real Entra sign-in app registration. Ignored once `DEMO_MODE=false` (Fabric is always real then). |
 | `ENTRA_TENANT_ID` / `ENTRA_CLIENT_ID` / `ENTRA_CLIENT_SECRET` | For real sign-in | Entra ID app registration for user sign-in (Microsoft provider) |
 | `FABRIC_TENANT_ID` | For real Fabric access | Tenant hosting the Fabric capacity |
 | `FABRIC_WORKSPACE_ID` | Optional | Default/reference workspace for local dev |

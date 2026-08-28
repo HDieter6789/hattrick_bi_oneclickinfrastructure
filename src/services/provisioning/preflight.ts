@@ -1,5 +1,5 @@
 import { prisma } from "@/db/prisma";
-import { isDemoMode } from "@/lib/env";
+import { isFabricLive } from "@/lib/env";
 
 export interface PreflightCheck {
   key: string;
@@ -71,8 +71,8 @@ export async function runPreflight(deploymentId: string): Promise<PreflightResul
   checks.push({
     key: "fabric_configuration",
     label: "Fabric tenant/workspace configuration present",
-    passed: isDemoMode() || Boolean(process.env.FABRIC_TENANT_ID),
-    detail: isDemoMode() ? "Running in demo mode — Fabric configuration check skipped" : undefined,
+    passed: !isFabricLive() || Boolean(process.env.FABRIC_TENANT_ID),
+    detail: !isFabricLive() ? "Running with a mock Fabric client — configuration check skipped" : undefined,
   });
 
   return { ready: checks.every((c) => c.passed), checks };

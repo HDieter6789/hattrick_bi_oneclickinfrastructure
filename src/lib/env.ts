@@ -19,6 +19,15 @@ const envSchema = z.object({
   // use in-memory mock adapters instead of calling real Microsoft services.
   DEMO_MODE: boolFromString.default(true),
 
+  // Escape hatch for testing real Fabric provisioning while everything else
+  // (sign-in, Graph, mail, calendar, secrets) stays in demo mode — e.g. to
+  // try the wizard against a real tenant without also standing up a real
+  // Entra sign-in app registration. Ignored (Fabric always real) once
+  // DEMO_MODE=false. See isFabricLive() below — this is the ONLY place
+  // FABRIC_LIVE_MODE is read; every Fabric-touching call site goes through
+  // isFabricLive(), never this flag directly.
+  FABRIC_LIVE_MODE: boolFromString.default(false),
+
   DATABASE_URL: z.url(),
 
   AUTH_SECRET: z.string().min(16, "AUTH_SECRET must be at least 16 characters"),
@@ -96,4 +105,13 @@ export function getEnv(): AppEnv {
 
 export function isDemoMode(): boolean {
   return getEnv().DEMO_MODE;
+}
+
+/** Whether the Fabric client factory (src/services/fabric/index.ts) should
+ * call the real Fabric REST API. True whenever the app is fully out of demo
+ * mode, OR when DEMO_MODE=true but FABRIC_LIVE_MODE=true was explicitly set
+ * to test real provisioning in isolation. */
+export function isFabricLive(): boolean {
+  const env = getEnv();
+  return !env.DEMO_MODE || env.FABRIC_LIVE_MODE;
 }
