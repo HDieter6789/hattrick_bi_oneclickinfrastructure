@@ -17,19 +17,24 @@ interface ApiConnection {
 }
 
 /**
- * Public, credential-free Microsoft sample dataset (NYC TLC trip records,
- * widely used in Fabric/Power BI tutorials) — a real Azure Blob Storage
- * account with anonymous read access, not a fabricated data source. Reusing
- * the generic Azure Blob Storage connector with `authMethod: "Anonymous"`
- * (see prisma/seed/connectors.ts) rather than a bespoke "SampleData"
- * connector, so this stays a preset payload for the existing generic
- * Connection Hub flow instead of new per-source UI.
+ * Public, credential-free NYC TLC trip-record sample data, widely used in
+ * Fabric/Power BI tutorials. Uses Fabric's generic "Web" connector (a plain
+ * anonymous HTTPS GET), NOT the Azure Blob Storage connector — Microsoft's
+ * own `azureopendatastorage` storage account no longer allows anonymous
+ * access (verified directly against a live tenant: both Anonymous and an
+ * authenticated service-principal token were rejected, since it belongs to
+ * Microsoft's own Entra tenant, not ours). NYC's official TLC trip data is
+ * separately published as plain public HTTPS files, which the Web
+ * connector's Anonymous credential handles without any tenant boundary
+ * issue — verified working end-to-end (HTTP 201) before wiring this in.
+ * Reuses the generic Connection Hub flow rather than a bespoke
+ * "SampleData" connector.
  */
 const SAMPLE_DATA_CONNECTION: Omit<CreateConnectionPayload, "customerId"> = {
-  connectorTypeKey: "AzureBlobs",
+  connectorTypeKey: "Web",
   displayName: "NYC Taxi (public sample data)",
   authMethod: "Anonymous",
-  parameters: { account: "azureopendatastorage", domain: "blob.core.windows.net" },
+  parameters: { url: "https://d37ci6vzurychx.cloudfront.net/trip-data/green_tripdata_2023-01.parquet" },
 };
 
 export function StepDataSources({ data, update, goNext, goBack }: WizardStepProps) {
