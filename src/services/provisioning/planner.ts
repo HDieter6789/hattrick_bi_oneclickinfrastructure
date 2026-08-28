@@ -52,7 +52,9 @@ export async function generateDeploymentPlan(
         ...nameContext,
       }),
       dependsOn: [],
-      configuration: {},
+      // Without an assigned capacity, a newly created workspace cannot
+      // host any items — see services/provisioning/steps/create-workspace.ts.
+      configuration: { capacityId: env.FABRIC_CAPACITY_ID },
     },
   ];
 

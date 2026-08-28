@@ -53,6 +53,13 @@ const envSchema = z.object({
   FABRIC_TENANT_ID: z.string().optional(),
   FABRIC_WORKSPACE_ID: z.string().optional(),
   FABRIC_DEFAULT_FOLDER_ID: z.string().optional(),
+  // Fabric capacity newly-created workspaces are assigned to at creation
+  // time (see services/provisioning/planner.ts) — a workspace with no
+  // capacity cannot host any items (Lakehouse/Notebook/etc. creation fails
+  // with a 403 "FeatureNotAvailable"). Optional only so the app still boots
+  // without it; provisioning a new workspace without it configured will
+  // itself fail at the Fabric API, by design (no silent fallback).
+  FABRIC_CAPACITY_ID: z.string().optional(),
   FABRIC_SERVICE_PRINCIPAL_CLIENT_ID: z.string().optional(),
   FABRIC_SERVICE_PRINCIPAL_CLIENT_SECRET: z.string().optional(),
 
