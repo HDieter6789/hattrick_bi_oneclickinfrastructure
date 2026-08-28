@@ -3,6 +3,7 @@ import { prisma } from "@/db/prisma";
 import { ForbiddenError } from "@/lib/authz";
 import { requireCustomerAccess } from "@/lib/require-customer-access";
 import { childLogger } from "@/lib/logger";
+import { isAppointmentGateSkipped } from "@/lib/env";
 import { writeAuditLog } from "@/lib/audit-log";
 import { generateDeploymentPlan, createDeploymentFromPlan, type DeploymentPlan } from "@/services/provisioning/planner";
 import { assertDeploymentReadyToStart } from "@/services/provisioning/preflight";
@@ -324,7 +325,7 @@ export async function createDeployment(
   if (appointment.customerId !== customerId) {
     throw new ForbiddenError("This appointment does not belong to the configuration's customer");
   }
-  if (appointment.status !== "confirmed") {
+  if (appointment.status !== "confirmed" && !isAppointmentGateSkipped()) {
     throw new Error(
       `Appointment "${input.appointmentId}" is not confirmed (status: "${appointment.status}"). ` +
         "A confirmed service appointment is required before infrastructure can be deployed.",

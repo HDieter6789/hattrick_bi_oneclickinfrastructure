@@ -70,6 +70,14 @@ vi.mock("@/lib/logger", () => ({
   childLogger: () => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() }),
 }));
 
+// SKIP_APPOINTMENT_GATE must default to false here — these tests exist to
+// pin that an unconfirmed appointment is always rejected in the normal
+// (non-testing) configuration. See tests/unit/appointment-gate-skip.test.ts
+// for coverage of the opposite (flag enabled) case.
+vi.mock("@/lib/env", () => ({
+  isAppointmentGateSkipped: vi.fn(() => false),
+}));
+
 const writeAuditLogMock = vi.fn();
 vi.mock("@/lib/audit-log", () => ({
   writeAuditLog: (...args: unknown[]) => writeAuditLogMock(...args),

@@ -94,3 +94,17 @@ happening server-side per action.
 through an in-memory mock adapter — no customer data or credentials ever leave the
 process, and no real Fabric/Graph/Azure resources are touched. Production deployments
 must set `DEMO_MODE=false` and provide real credentials (see `docs/DEPLOYMENT.md`).
+
+`FABRIC_LIVE_MODE=true` narrows this to just the Fabric client, so real provisioning can
+be exercised while sign-in/Graph/mail/calendar stay mocked.
+
+## Testing-only gate bypass
+
+`SKIP_APPOINTMENT_GATE` / `NEXT_PUBLIC_SKIP_APPOINTMENT_GATE` disable the otherwise
+mandatory and unbypassable appointment-confirmed check (both server-side enforcement
+points — `features/provisioning/service.ts`'s `createDeployment` and
+`services/provisioning/preflight.ts` — and the wizard's Create button). This exists only
+to unblock manual end-to-end testing without booking/confirming an appointment every
+time. **Never set either in a real deployment** — nothing else about the gate's design
+changed; it is exactly as bypassable as this one explicit, server-owned environment flag
+and no more.

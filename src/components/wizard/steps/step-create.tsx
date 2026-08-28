@@ -43,7 +43,12 @@ export function StepCreate({ data, update, goBack }: WizardStepProps) {
   });
 
   const confirmedAppointment = appointmentQuery.data?.appointments.find((a) => a.id === data.appointmentId && a.status === "confirmed");
-  const canCreate = Boolean(data.configurationId && data.appointmentId && confirmedAppointment);
+  // TESTING ONLY: mirrors the server's SKIP_APPOINTMENT_GATE (src/lib/env.ts)
+  // so the button isn't stuck disabled while the real gate is off — the
+  // server re-derives and enforces this independently regardless of what
+  // this flag does here (see features/provisioning/service.ts, preflight.ts).
+  const appointmentGateSkipped = process.env.NEXT_PUBLIC_SKIP_APPOINTMENT_GATE === "true";
+  const canCreate = Boolean(data.configurationId && data.appointmentId && (confirmedAppointment || appointmentGateSkipped));
 
   const createMutation = useMutation({
     mutationFn: async () => {

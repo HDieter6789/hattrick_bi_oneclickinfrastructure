@@ -1,5 +1,5 @@
 import { prisma } from "@/db/prisma";
-import { isFabricLive } from "@/lib/env";
+import { isFabricLive, isAppointmentGateSkipped } from "@/lib/env";
 
 export interface PreflightCheck {
   key: string;
@@ -36,11 +36,13 @@ export async function runPreflight(deploymentId: string): Promise<PreflightResul
   checks.push({
     key: "appointment_confirmed",
     label: "Service appointment confirmed",
-    passed: deployment.appointment.status === "confirmed",
+    passed: deployment.appointment.status === "confirmed" || isAppointmentGateSkipped(),
     detail:
       deployment.appointment.status === "confirmed"
         ? undefined
-        : "An onboarding/service appointment is required before infrastructure deployment.",
+        : isAppointmentGateSkipped()
+          ? "SKIP_APPOINTMENT_GATE is set — appointment confirmation was bypassed for testing."
+          : "An onboarding/service appointment is required before infrastructure deployment.",
   });
 
   checks.push({

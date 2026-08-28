@@ -28,6 +28,15 @@ const envSchema = z.object({
   // isFabricLive(), never this flag directly.
   FABRIC_LIVE_MODE: boolFromString.default(false),
 
+  // TESTING ONLY (section 21 — the appointment-confirmed deployment gate is
+  // otherwise mandatory and unbypassable by design). When true, both
+  // server-side enforcement points (features/provisioning/service.ts's
+  // createDeployment, services/provisioning/preflight.ts) skip the
+  // appointment-confirmed check. Must stay `false` in any real deployment —
+  // there is deliberately no way to flip this via the UI, only via the
+  // server's own environment configuration.
+  SKIP_APPOINTMENT_GATE: boolFromString.default(false),
+
   DATABASE_URL: z.url(),
 
   AUTH_SECRET: z.string().min(16, "AUTH_SECRET must be at least 16 characters"),
@@ -114,4 +123,9 @@ export function isDemoMode(): boolean {
 export function isFabricLive(): boolean {
   const env = getEnv();
   return !env.DEMO_MODE || env.FABRIC_LIVE_MODE;
+}
+
+/** TESTING ONLY — see the SKIP_APPOINTMENT_GATE schema comment above. */
+export function isAppointmentGateSkipped(): boolean {
+  return getEnv().SKIP_APPOINTMENT_GATE;
 }
